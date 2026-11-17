@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <meta name="theme-color" content="#120a24">
+  <meta name="color-scheme" content="dark">
+  <title>Arcana Tarot</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div class="sky" aria-hidden="true"></div>
+<div class="app">
+  <header class="masthead">
+    <svg class="moon-mark" viewBox="0 0 120 40" aria-hidden="true" focusable="false">
+      <path d="M8 20h30M82 20h30" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+      <circle cx="44" cy="20" r="2" fill="currentColor"/>
+      <circle cx="76" cy="20" r="2" fill="currentColor"/>
+      <path d="M66 20a10 10 0 1 1-6.5-9.4 8 8 0 1 0 0 18.8A10 10 0 0 1 66 20z" fill="currentColor"/>
+    </svg>
+    <h1>Arcana Tarot</h1>
+    <p class="tagline">Tarot reader assistant for smoother online, phone, and chat readings, with the Fate &amp; Feather deck.</p>
+  </header>
+
+  <div id="storageWarning" class="notice" style="display:none;">
+    This device is not letting the app save. Readings will still work, but copy them before closing the app.
+  </div>
+
+  <!-- OPENING SCREEN -->
+  <div id="home" class="card">
+    <h2>What would you like to do?</h2>
+    <button onclick="startNewReading()">Start a New Reading</button>
+    <button id="continueButton" class="secondary" onclick="continueReading()" style="display:none;">Continue Reading</button>
+    <p id="continueInfo" class="small slot-note" style="display:none;"></p>
+    <button id="savedButton" class="secondary" onclick="openSaved()">Saved Readings</button>
+    <button class="secondary" onclick="showSection('lookup')">Look Up a Card</button>
+    <button class="secondary" onclick="showSection('help')">How to Use the App</button>
+  </div>
+
+  <!-- READING: STEP BY STEP -->
+  <div id="live" class="card" style="display:none;">
+    <div class="topbar">
+      <button class="link" onclick="goHome()">Home</button>
+      <span id="stepCounter" class="step-counter">Step 1 of 4</span>
+    </div>
+    <div class="steps">
+      <span class="dot" id="dot1">Question</span>
+      <span class="dot" id="dot2">Spread</span>
+      <span class="dot" id="dot3">Cards</span>
+      <span class="dot" id="dot4">Reading</span>
+    </div>
+
+    <div id="step1" class="step">
+      <h2>Your Question</h2>
+      <p class="small">What would you like the cards to speak to? You can leave this blank for a general reading.</p>
+      <label for="clientQuestion">Client Question</label>
+      <textarea id="clientQuestion" rows="3" placeholder="Example: What should I know about this connection?"></textarea>
+      <div class="nav-row single">
+        <button onclick="goToStep(2)">Next</button>
+      </div>
+    </div>
+
+    <div id="step2" class="step" style="display:none;">
+      <h2>Choose a Spread</h2>
+      <label for="layout">Reading Layout</label>
+      <select id="layout" onchange="changeLayout()">
+        <option value="one">1 Card: Main Message</option>
+        <option value="three">3 Card: Past / Present / Future</option>
+        <option value="situation">3 Card: Situation / Obstacle / Advice</option>
+        <option value="love">Love Spread</option>
+        <option value="career">Career Spread</option>
+        <option value="yesno">Yes or No Spread</option>
+        <option value="celtic">Celtic Cross</option>
+      </select>
+      <p id="layoutPositions" class="small"></p>
+      <div class="nav-row">
+        <button class="secondary" onclick="goToStep(1)">Back</button>
+        <button onclick="goToStep(3)">Next</button>
+      </div>
+    </div>
+
+    <div id="step3" class="step" style="display:none;">
+      <h2>Choose Your Cards</h2>
+      <p class="small">Select the cards that were pulled, or let the app draw them for you.</p>
+      <button class="secondary" onclick="drawCardsForMe()">Draw the Cards for Me</button>
+      <div id="cardInputs"></div>
+      <p id="cardsMissing" class="small warning" style="display:none;">Please choose a card for every position before going on.</p>
+      <div class="nav-row">
+        <button class="secondary" onclick="goToStep(2)">Back</button>
+        <button onclick="goToStep(4)">Next</button>
+      </div>
+    </div>
+
+    <div id="step4" class="step" style="display:none;">
+      <h2>Your Reading</h2>
+      <label for="style">Reading Style</label>
+      <select id="style" onchange="saveDraft()">
+        <option>Professional Reader</option>
+        <option>Warm and Comforting</option>
+        <option>Honest and Direct</option>
+        <option>Mystical</option>
+        <option>Love Reading</option>
+        <option>Career and Money</option>
+        <option>Quick Phone Reading</option>
+      </select>
+
+      <button onclick="createReading()">Create Reading Script</button>
+      <div id="savedMessage" class="small saved-note" style="display:none;">Saved to Saved Readings.</div>
+      <div id="readingOutput" class="output" style="display:none;"></div>
+      <div id="clarifierOutput" class="output" style="display:none;"></div>
+
+      <div id="afterReading" style="display:none;">
+        <button class="secondary" onclick="pullClarifier()">Pull Clarifier Card</button>
+        <button class="secondary" onclick="copyReadingScript()">Copy Reading Script</button>
+        <div id="copyMessage" class="small" style="display:none;">Reading script copied.</div>
+      </div>
+
+      <div class="nav-row">
+        <button class="secondary" onclick="goToStep(3)">Back</button>
+        <button onclick="clearEnergy()">New Reading</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVED READINGS -->
+  <div id="saved" class="card" style="display:none;">
+    <div class="topbar">
+      <button class="link" onclick="goHome()">Home</button>
+    </div>
+    <h2>Saved Readings</h2>
+    <p class="small">Every reading is saved on this device as soon as it is created.</p>
+    <div id="savedList"></div>
+  </div>
+
+  <div id="savedDetail" class="card" style="display:none;">
+    <div class="topbar">
+      <button class="link" onclick="openSaved()">All Saved Readings</button>
+    </div>
+    <div id="savedDetailOutput" class="output"></div>
+    <button onclick="reopenSavedReading()">Open This Reading</button>
+    <button class="secondary" onclick="copySavedReading()">Copy Reading Script</button>
+    <div id="savedCopyMessage" class="small" style="display:none;"></div>
+    <button id="deleteButton" class="danger" onclick="deleteSavedReading()">Delete This Reading</button>
+  </div>
+
+  <!-- CARD LOOKUP -->
+  <div id="lookup" class="card" style="display:none;">
+    <div class="topbar">
+      <button class="link" onclick="goHome()">Home</button>
+    </div>
+    <h2>Card Lookup</h2>
+    <p class="small">Quick helper for card meanings.</p>
+
+    <label for="lookupCard">Choose a card</label>
+    <select id="lookupCard"></select>
+
+    <label for="lookupDirection">Card Direction</label>
+    <select id="lookupDirection">
+      <option value="upright">Upright</option>
+      <option value="reversed">Reversed</option>
+    </select>
+
+    <button onclick="lookupMeaning()">Show Meaning</button>
+    <div id="lookupOutput" class="output" style="display:none;"></div>
+  </div>
+
+  <!-- HELP -->
+  <div id="help" class="card" style="display:none;">
+    <div class="topbar">
+      <button class="link" onclick="goHome()">Home</button>
+    </div>
+    <h2>How to Use Arcana Tarot</h2>
+
+    <div class="output">
+      <h3>What this app does</h3>
+      <p>Arcana Tarot helps tarot readers build smoother readings with the Fate &amp; Feather deck. Ask a question, choose a spread, pick or draw the cards, choose a reading style, and use the generated script as a guide while reading for someone.</p>
+
+      <h3>Simple steps</h3>
+      <p>1. Tap <strong>Start a New Reading</strong>.</p>
+      <p>2. Type the question, then tap <strong>Next</strong>.</p>
+      <p>3. Choose a spread, then tap <strong>Next</strong>.</p>
+      <p>4. Select the cards pulled and whether each is upright or reversed, or tap <strong>Draw the Cards for Me</strong>. Then tap <strong>Next</strong>.</p>
+      <p>5. Choose a reading style and tap <strong>Create Reading Script</strong>.</p>
+      <p>Use <strong>Back</strong> at any step to change something. Nothing you entered is lost when you go back.</p>
+
+      <h3>Your readings are saved automatically</h3>
+      <p>Every reading is saved to <strong>Saved Readings</strong> the moment you create it. A clarifier card is added to the same saved reading. Starting a new reading never erases an old one.</p>
+
+      <h3>Continue Reading</h3>
+      <p>If you close the app partway through, your question, spread, and cards are kept. Tap <strong>Continue Reading</strong> on the opening screen to pick up exactly where you stopped.</p>
+
+      <h3>Saved Readings</h3>
+      <p>Open <strong>Saved Readings</strong> from the opening screen to see every reading, newest first. Tap one to read it again, copy it, open it to add a clarifier, or delete it.</p>
+
+      <h3>Real deck style</h3>
+      <p>When a card is chosen in a spread, it is removed from the other card lists so the same card cannot repeat in the same reading. This helps the app feel more like working with a real tarot deck.</p>
+
+      <h3>What does reversed mean?</h3>
+      <p>A reversed card does not always mean something bad. It can mean blocked energy, delays, inner work, avoidance, imbalance, hesitation, or the shadow side of the upright meaning.</p>
+
+      <h3>What each section means</h3>
+      <p><strong>The Message of Your Reading:</strong> A personal interpretation that connects all the cards into one message for your question, including what the clarifier adds.</p>
+      <p><strong>Quick Message:</strong> A short overview of the reading.</p>
+      <p><strong>Card Breakdown:</strong> A quick guide showing the card position, card pulled, upright or reversed direction, and its Fate &amp; Feather meaning.</p>
+      <p><strong>Say This:</strong> A complete spoken reading, written to be read aloud to the person, card by card and in your chosen reading style. When you pull a clarifier, it is woven into the conversation.</p>
+      <p><strong>Follow-Up Question:</strong> A natural question to keep the reading flowing or offer another card pull.</p>
+
+      <h3>Pull Clarifier Card</h3>
+      <p>Use this when the person wants one more card for clarity, why the answer is showing up, their feelings, their next move, or the best next step. The clarifier comes from the cards not already in the spread.</p>
+
+      <h3>Copy Reading Script</h3>
+      <p>Use this when you want to paste the reading into chat, notes, messages, documents, or a client reply.</p>
+
+      <h3>New Reading</h3>
+      <p>This clears the screen so you can start fresh. The reading you just finished stays in Saved Readings.</p>
+
+      <h3>Do I read everything out loud?</h3>
+      <p>No. The <strong>Say This</strong> section is the main part to speak from. The rest helps you understand the spread quickly.</p>
+
+      <h3>Can I change the wording?</h3>
+      <p>Yes. The script is a guide, not a cage. Add your own intuition, tone, and natural wording so it sounds like you.</p>
+    </div>
+  </div>
+
+  <p class="small">
+    For entertainment and reflection only. Not medical, legal, financial, or mental health advice.
+  </p>
+  <p class="small credit">Fate &amp; Feather Tarot artwork and meanings designed by MizzFitt App Studio.</p>
+</div>
+<script src="./deck.js"></script>
+<script src="./interpretation.js"></script>
+<script src="./script.js"></script>
+</body>
+</html>
