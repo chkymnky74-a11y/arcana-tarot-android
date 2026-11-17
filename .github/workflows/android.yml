@@ -114,7 +114,7 @@ jobs:
             git push
           fi
           echo "Exporting upload certificate PEM for the Play reset request"
-          keytool -export -rfc -keystore upload-keystore.jks -alias arcana-upload -file upload_certificate.pem
+          keytool -export -rfc -keystore upload-keystore.jks -alias arcana-upload -storepass "$KEYSTORE_PASSWORD" -file upload_certificate.pem
           keytool -printcert -file upload_certificate.pem
           echo "DO NOT sign the release AAB with this key yet. Play must approve the upload-key reset first, or the signed AAB will be rejected."
           rm -f upload-keystore.jks
