@@ -1,0 +1,128 @@
+# Tarot Card Reading Assistant Android — free cloud build (GitHub Actions)
+#
+# Builds the Tarot Card Reading Assistant Android app in the cloud because Gradle cannot run
+# in the local VM (Java cross-process loopback TCP is blocked there).
+# Package: com.shelleywrites.arcanatarot, version 1.3 (PROPOSED), versionCode 10201.
+# Live is 1.2 / code 10200, so the next release must be above 10200.
+#
+# The release AAB built here is UNSIGNED on purpose. The original v1.2
+# upload keystore was searched for on 2026-11-17 in the workspace, home
+# files and Google Drive and was NOT found. Play App Signing IS enabled,
+# so a Play upload-key reset is permitted. Until that reset is approved
+# by Google, a new upload key must NOT be used to sign a release AAB,
+# or Play will reject it. This workflow therefore builds the unsigned
+# AAB and debug APK, and, only when the KEYSTORE_PASSWORD secret is set,
+# generates the NEW upload keystore and exports its PEM certificate for
+# the reset request. It never signs the release AAB and never submits
+# anything to Play Console. The Arcana web app has no external URLs and
+# no keys in it. Version 1.3, versionCode 10201, confirmed by Shelley
+# 2026-11-17. In-app credit is now MizzFitt App Studio.
+
+name: Build Arcana Tarot Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+
+      - name: Install the Android packages we need
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKMANAGER" ] || SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/16.0/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install the app's Node packages
+        run: npm ci
+
+      - name: Sync the web app into the Android project
+        run: npx cap sync android
+
+      - name: Make the Gradle wrapper executable
+        run: chmod +x android/gradlew
+
+      - name: Build the debug APK
+        run: ./gradlew assembleDebug --no-daemon --max-workers=1
+        working-directory: android
+
+      - name: Build the unsigned release AAB
+        run: ./gradlew bundleRelease --no-daemon --max-workers=1
+        working-directory: android
+
+      - name: Check what was built
+        run: |
+          ls -lh android/app/build/outputs/apk/debug/app-debug.apk
+          ls -lh android/app/build/outputs/bundle/release/app-release.aab
+          unzip -l android/app/build/outputs/bundle/release/app-release.aab | grep -E "base/assets/public/index.html|AndroidManifest.xml" || true
+
+      - name: Save the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcana-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Save the unsigned release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcana-release-aab-unsigned
+          path: android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Prepare new upload key and certificate (reset only)
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "KEYSTORE_PASSWORD secret is not set. Add it in the repo Settings, Secrets and variables, Actions, then re-run this workflow."
+            echo "Unsigned AAB and debug APK above are still built and saved."
+            exit 0
+          fi
+          cd android
+          if [ -f upload-keystore.enc ]; then
+            echo "Decrypting existing upload keystore"
+            openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$KEYSTORE_PASSWORD" -in upload-keystore.enc -out upload-keystore.jks
+          else
+            echo "Creating NEW upload keystore for the Play upload-key reset"
+            keytool -genkeypair -v -keystore upload-keystore.jks -alias arcana-upload -keyalg RSA -keysize 2048 -validity 10000 -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" -dname "CN=Tarot Card Reading Assistant, O=MizzFitt App Studio, C=CA"
+            openssl enc -aes-256-cbc -salt -pbkdf2 -pass pass:"$KEYSTORE_PASSWORD" -in upload-keystore.jks -out upload-keystore.enc
+            git config user.name "arcana-build"
+            git config user.email "build@arcana.local"
+            git add upload-keystore.enc
+            git commit -m "Add encrypted new upload keystore for Play upload-key reset [skip ci]"
+            git push
+          fi
+          echo "Exporting upload certificate PEM for the Play reset request"
+          keytool -export -rfc -keystore upload-keystore.jks -alias arcana-upload -file upload_certificate.pem
+          keytool -printcert -file upload_certificate.pem
+          echo "DO NOT sign the release AAB with this key yet. Play must approve the upload-key reset first, or the signed AAB will be rejected."
+          rm -f upload-keystore.jks
+
+      - name: Save the upload certificate PEM
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arcana-upload-certificate-pem
+          path: android/upload_certificate.pem
+          if-no-files-found: warn
