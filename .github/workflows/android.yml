@@ -126,3 +126,28 @@ jobs:
           name: arcana-upload-certificate-pem
           path: android/upload_certificate.pem
           if-no-files-found: warn
+
+      - name: Sign the release AAB with the new upload key
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "KEYSTORE_PASSWORD secret is not set. Signed AAB skipped."
+            exit 0
+          fi
+          cd android
+          echo "Decrypting upload keystore for signing"
+          openssl enc -d -aes-256-cbc -salt -pbkdf2 -pass pass:"$KEYSTORE_PASSWORD" -in upload-keystore.enc -out upload-keystore.jks
+          cp app/build/outputs/bundle/release/app-release.aab app-release-signed.aab
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore upload-keystore.jks -storepass "$KEYSTORE_PASSWORD" -keypass "$KEYSTORE_PASSWORD" app-release-signed.aab arcana-upload
+          jarsigner -verify app-release-signed.aab
+          rm -f upload-keystore.jks
+
+      - name: Save the signed release AAB
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arcana-release-aab-signed
+          path: android/app-release-signed.aab
+          if-no-files-found: warn
